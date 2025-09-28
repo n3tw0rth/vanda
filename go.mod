@@ -1,3 +1,3 @@
-module n3tw0rth/precious
+module n3tw0rth/vanda
 
 go 1.23.5
