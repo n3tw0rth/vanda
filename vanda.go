@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// ArgType represents the type of an argument
 type ArgType string
 
 const (
@@ -14,6 +15,7 @@ const (
 	Bool   ArgType = "bool"
 )
 
+// ArgPattern describes a single argument or flag
 type ArgPattern struct {
 	Name     string
 	Flag     string
@@ -21,55 +23,84 @@ type ArgPattern struct {
 	Required bool
 }
 
+// CommandPattern represents a command with its argument patterns
+type CommandPattern struct {
+	Name string
+	Args []ArgPattern
+}
+
+// Parser holds multiple command patterns
 type Parser struct {
-	pattern []ArgPattern
+	Commands []*CommandPattern
 }
 
-// New creates a parser from DSL pattern
-func New(pattern string) (*Parser, error) {
-	args, err := parsePattern(pattern)
-	if err != nil {
-		return nil, err
+// NewParser creates a parser from a list of DSL patterns
+func NewParser(patterns []string) (*Parser, error) {
+	cmds := []*CommandPattern{}
+	for _, pat := range patterns {
+		cmd, err := ParsePattern(pat)
+		if err != nil {
+			return nil, err
+		}
+		cmds = append(cmds, cmd)
 	}
-	return &Parser{pattern: args}, nil
+	return &Parser{Commands: cmds}, nil
 }
 
-// Parse command-line args against the pattern
-func (p *Parser) Parse(argv []string) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
-	argi := 0
+// MatchAndParse picks the correct command pattern based on argv[0] and parses the rest
+func (p *Parser) MatchAndParse(argv []string) (string, map[string]interface{}, error) {
+	if len(argv) == 0 {
+		return "", nil, fmt.Errorf("no command provided")
+	}
 
-	for _, pat := range p.pattern {
+	cmdArg := argv[0]
+	var selected *CommandPattern
+	for _, cmd := range p.Commands {
+		if cmd.Name == cmdArg {
+			selected = cmd
+			break
+		}
+	}
+	if selected == nil {
+		return "", nil, fmt.Errorf("unknown command: %s", cmdArg)
+	}
+
+	// parse the remaining args
+	result := make(map[string]interface{})
+	rest := argv[1:]
+
+	for _, pat := range selected.Args {
 		if pat.Required {
-			if argi >= len(argv) {
-				return nil, fmt.Errorf("missing required argument: %s", pat.Name)
+			if len(rest) == 0 {
+				return "", nil, fmt.Errorf("missing required argument: %s", pat.Name)
 			}
-			val, err := castValue(argv[argi], pat.Type)
+			val, err := castValue(rest[0], pat.Type)
 			if err != nil {
-				return nil, err
+				return "", nil, err
 			}
 			result[pat.Name] = val
-			argi++
+			rest = rest[1:]
 		} else {
+			// optional flags
 			if pat.Type == Bool {
-				for _, a := range argv {
+				for _, a := range rest {
 					if a == "-"+pat.Name {
 						result[pat.Name] = true
 					}
 				}
 			} else {
-				for i := 0; i < len(argv); i++ {
-					if strings.HasPrefix(argv[i], "-"+pat.Name) {
-						if argv[i] == "-"+pat.Name && i+1 < len(argv) {
-							val, err := castValue(argv[i+1], pat.Type)
+				for i := 0; i < len(rest); i++ {
+					if strings.HasPrefix(rest[i], "-"+pat.Name) {
+						if rest[i] == "-"+pat.Name && i+1 < len(rest) {
+							val, err := castValue(rest[i+1], pat.Type)
 							if err != nil {
-								return nil, err
+								return "", nil, err
 							}
 							result[pat.Name] = val
 						} else {
-							val, err := castValue(strings.TrimPrefix(argv[i], "-"+pat.Name), pat.Type)
+							val, err := castValue(strings.TrimPrefix(rest[i], "-"+pat.Name), pat.Type)
 							if err != nil {
-								return nil, err
+								return "", nil, err
 							}
 							result[pat.Name] = val
 						}
@@ -79,7 +110,7 @@ func (p *Parser) Parse(argv []string) (map[string]interface{}, error) {
 		}
 	}
 
-	return result, nil
+	return selected.Name, result, nil
 }
 
 func castValue(s string, t ArgType) (interface{}, error) {
@@ -89,7 +120,6 @@ func castValue(s string, t ArgType) (interface{}, error) {
 	case Int:
 		return strconv.Atoi(s)
 	case Bool:
-		// presence already handled, but if value-style
 		return strconv.ParseBool(s)
 	default:
 		return nil, fmt.Errorf("unsupported type: %s", t)
