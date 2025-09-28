@@ -1,4 +1,4 @@
-package precious
+package vanda
 
 import (
 	"fmt"
