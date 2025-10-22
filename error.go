@@ -1,9 +1,13 @@
 package vanda
 
-type ErrInvalidPattern struct {
+type ArgumentParsingError struct {
 	Message string
 }
 
-func (n *ErrInvalidPattern) Error() string {
+type ArgumentCastingError struct {
+	Message string
+}
+
+func (n *ArgumentParsingError) Error() string {
 	return n.Message
 }

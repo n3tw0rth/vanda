@@ -7,9 +7,9 @@ import (
 
 func main() {
 	patterns := []string{
-		"<subcommand> [requiredone:string] [requiredtwo:string] {=optionalone:string} {=optionaltwo:string}",
+		"<subcommand> [requiredone:string] [requiredtwo:string] {==optionalone:string} {=optionaltwo:string}",
 	}
-	argv := []string{"subcommand", "requiredparam1", "requiredparam2", "-optionalone", "10", "-optionaltwo", "20"}
+	argv := []string{"subcommand", "requiredparam1", "requiredparam2", "--optionalone", "10", "optionaltwo", "20"}
 
 	parser, err := vanda.NewParser(patterns)
 	if err != nil {

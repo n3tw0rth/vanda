@@ -48,9 +48,11 @@ func NewParser(patterns []string) (*Parser, error) {
 }
 
 // MatchAndParse picks the correct command pattern based on argv[0] and parses the rest
-func (p *Parser) MatchAndParse(argv []string) (string, map[string]interface{}, error) {
+func (p *Parser) MatchAndParse(argv []string) (string, map[string]any, error) {
 	if len(argv) == 0 {
-		return "", nil, fmt.Errorf("no command provided")
+		return "", nil, &ArgumentParsingError{
+			"no command provided",
+		}
 	}
 
 	cmdArg := argv[0]
@@ -62,17 +64,21 @@ func (p *Parser) MatchAndParse(argv []string) (string, map[string]interface{}, e
 		}
 	}
 	if selected == nil {
-		return "", nil, fmt.Errorf("unknown command: %s", cmdArg)
+		return "", nil, &ArgumentParsingError{
+			fmt.Sprintf("unknown command: %s", cmdArg),
+		}
 	}
 
 	// parse the remaining args
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 	rest := argv[1:]
 
 	for _, pat := range selected.Args {
 		if pat.Required {
 			if len(rest) == 0 {
-				return "", nil, fmt.Errorf("missing required argument: %s", pat.Name)
+				return "", nil, &ArgumentParsingError{
+					fmt.Sprintf("missing required argument: %s", pat.Name),
+				}
 			}
 			val, err := castValue(rest[0], pat.Type)
 			if err != nil {
@@ -90,15 +96,15 @@ func (p *Parser) MatchAndParse(argv []string) (string, map[string]interface{}, e
 				}
 			} else {
 				for i := 0; i < len(rest); i++ {
-					if strings.HasPrefix(rest[i], "-"+pat.Name) {
-						if rest[i] == "-"+pat.Name && i+1 < len(rest) {
+					if strings.HasPrefix(rest[i], pat.Flag) {
+						if rest[i] == pat.Flag && i+1 < len(rest) {
 							val, err := castValue(rest[i+1], pat.Type)
 							if err != nil {
 								return "", nil, err
 							}
 							result[pat.Name] = val
 						} else {
-							val, err := castValue(strings.TrimPrefix(rest[i], "-"+pat.Name), pat.Type)
+							val, err := castValue(strings.TrimPrefix(rest[i], pat.Flag), pat.Type)
 							if err != nil {
 								return "", nil, err
 							}
@@ -113,7 +119,7 @@ func (p *Parser) MatchAndParse(argv []string) (string, map[string]interface{}, e
 	return selected.Name, result, nil
 }
 
-func castValue(s string, t ArgType) (interface{}, error) {
+func castValue(s string, t ArgType) (any, error) {
 	switch t {
 	case String:
 		return s, nil
@@ -122,6 +128,8 @@ func castValue(s string, t ArgType) (interface{}, error) {
 	case Bool:
 		return strconv.ParseBool(s)
 	default:
-		return nil, fmt.Errorf("unsupported type: %s", t)
+		return nil, &ArgumentParsingError{
+			fmt.Sprintf("unsupported type: %s", t),
+		}
 	}
 }
