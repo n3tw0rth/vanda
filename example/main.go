@@ -7,11 +7,9 @@ import (
 
 func main() {
 	patterns := []string{
-		"<start> [integration:string] [key:string] {=from:string} {=to:string}",
-		"<nmap> [ip:string] {sV:bool} {=oN:string} {=minrate:int}",
+		"<subcommand> [requiredone:string] [requiredtwo:string] {==optionalone:string} {=optionaltwo:string}",
 	}
-	argv := []string{"start", "jira", "knox", "-from", "1000", "-to", "1030"}
-	// argv := []string{"nmap", "10.10.10.10", "-sV", "-oN", "scan.txt", "-minrate", "1000"}
+	argv := []string{"subcommand", "requiredparam1", "requiredparam2", "--optionalone", "10", "optionaltwo", "20"}
 
 	parser, err := vanda.NewParser(patterns)
 	if err != nil {
